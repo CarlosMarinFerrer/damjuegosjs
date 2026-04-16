@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Document</title>
+    <style>
+        body {
+            background: #222;
+            overflow: hidden;
+            color: white;
+            font-family: sans-serif;
+        }
+
+        .escudo-visual {
+            position: absolute;
+
+            width: 50px;
+            height: 50px;
+
+
+            border-radius: 50%;
+
+
+            background: rgba(0, 255, 255, 0.3);
+
+
+            border: 2px solid #00ffff;
+
+
+            box-shadow: 0 0 15px #00ffff;
+
+
+            pointer-events: none;
+
+
+            display: none;
+
+
+            z-index: 10;
+        }
+
+        .item-escudo {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: cyan;
+            border-radius: 50%;
+
+            border: 2px solid white;
+            box-shadow: 0 0 10px cyan;
+
+            animation: palpitar 1s infinite alternate;
+            display: none;
+        }
+
+        #jugador {
+            position: absolute;
+
+            width: 30px;
+            height: 30px;
+            border: 2px solid green;
+            background: red;
+        }
+
+        .proyectil {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: orange;
+            border-radius: 50%;
+        }
+
+        .torreta {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: purple;
+            border: 2px solid white;
+        }
+
+        #enemigo {
+            position: absolute;
+
+
+            width: 40px;
+            height: 40px;
+            border: 2px solid blue;
+            background: yellow;
+        }
+
+        #punto {
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            background: yellow;
+        }
+
+        #marcador {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            font-size: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="marcador">Puntos: 0 | Nivel: 1</div>
+    <div id="jugador"> </div>
+    <div id="enemigo"></div>
+    <div id="punto"></div>
+
+    <script>
+        const elenemigo = document.getElementById("enemigo");
+        const eljugador = document.getElementById("jugador");
+        const elmarcador = document.getElementById("marcador");
+        const elpunto = document.getElementById("punto");
+        const elEscudoProtector = document.createElement("div");
+        elEscudoProtector.className = "escudo-visual";
+        document.body.appendChild(elEscudoProtector);
+        let escudoDiv = null;
+        /*let desplazamientoX= 2;
+        let desplazamientoY= 2;*/
+        let estado = {
+            jugador: { x: 100, y: 100, w: 30, h: 30, v: 5, invulnerable: false },
+            enemigo: { x: 400, y: 400, w: 40, h: 40, v: 1.5 },
+            punto: { x: 0, y: 0, w: 15, h: 15 },
+            powerUp: { x: 0, y: 0, w: 20, h: 20, visible: false },
+            torretas: [],
+            proyectiles: [],
+            tiempoEscudo: 0,
+            puntosActuales: 0,
+            nivel: 1,
+            vivo: true
+        };
+        function spawnPunto() {
+            estado.punto.x = Math.random() * (window.innerWidth - 50);
+            estado.punto.y = Math.random() * (window.innerHeight - 50);
+        }
+        function spawnEscudo() {
+            estado.powerUp.x = Math.random() * (window.innerWidth - 50);
+            estado.powerUp.y = Math.random() * (window.innerHeight - 50);
+            estado.powerUp.visible = true;
+            if (!escudoDiv) {
+                escudoDiv = document.createElement("div");
+                escudoDiv.className = "item-escudo";
+                document.body.appendChild(escudoDiv);
+            }
+            escudoDiv.style.left = estado.powerUp.x + "px";
+            escudoDiv.style.top = estado.powerUp.y + "px";
+        }
+        function spawnTorreta() {
+            const nuevaTorreta = {
+                x: Math.random() * (window.innerWidth - 40),
+                y: Math.random() * (window.innerHeight - 40),
+                w: 40,
+                h: 40,
+                ultimodisparo: 0
+
+            };
+            estado.torretas.push(nuevaTorreta);
+
+            const div = document.createElement("div");
+            div.className = "torreta";
+            div.id = "torreta-" + (estado.torretas.length - 1);
+            document.body.appendChild(div);
+
+
+
+
+
+
+        }
+        function disparar(torreta) {
+            const dx = estado.jugador.x - torreta.x;
+            const dy = estado.jugador.y - torreta.y;
+            const distancia = Math.sqrt(dx * dx + dy * dy);
+            const vproyectil = 4;
+            const proyectil = {
+                x: torreta.x + 15,
+                y: torreta.y + 15,
+                vx: (dx / distancia) * vproyectil,
+                vy: (dy / distancia) * vproyectil,
+                w: 8,
+                h: 8,
+                el: document.createElement("div")
+            };
+            proyectil.el.className = "proyectil";
+            document.body.appendChild(proyectil.el);
+            estado.proyectiles.push(proyectil);
+        }
+        function obtenerCaja(obj) {
+            return {
+                izq: obj.x, der: obj.x + (obj.w || obj.ancho),
+                arr: obj.y, abj: obj.y + (obj.h || obj.alto)
+            };
+        }
+        function hayChoque(a, b) {
+            let cajaa = obtenerCaja(a);
+            let cajab = obtenerCaja(b);
+            return !(
+                cajaa.der < cajab.izq
+                || cajaa.izq > cajab.der
+                || cajaa.abj < cajab.arr
+                || cajaa.arr > cajab.abj
+
+            );
+        }
+
+
+
+        function actulizar() {
+            if (!estado.vivo) return;
+            if (estado.enemigo.x < estado.jugador.x) estado.enemigo.x += estado.enemigo.v;
+            else if (estado.enemigo.x > estado.jugador.x) estado.enemigo.x -= estado.enemigo.v;
+            if (estado.enemigo.y < estado.jugador.y) estado.enemigo.y += estado.enemigo.v;
+            else if (estado.enemigo.y > estado.jugador.y) estado.enemigo.y -= estado.enemigo.v;
+            if (hayChoque(estado.jugador, estado.punto)) {
+                estado.puntosActuales++;
+                spawnPunto();
+                if (estado.puntosActuales % 5 === 0) {
+                    estado.nivel++;
+                    estado.enemigo.v += 0.3;
+                    estado.jugador.v += 0.3;
+                    spawnTorreta();
+                }
+                elmarcador.innerText = `PUNTOS: ${estado.puntosActuales} | NIVEL: ${estado.nivel}`;
+            }
+            if (!estado.powerUp.visible) {
+                let suerte = Math.random();
+                if (suerte < 0.001) {
+                    spawnEscudo();
+                }
+            }
+            if (estado.powerUp.visible && hayChoque(estado.jugador, estado.powerUp)) {
+                estado.jugador.invulnerable = true;
+                estado.tiempoEscudo = Date.now() + 30000;
+                estado.powerUp.visible = false;
+                if (escudoDiv) escudoDiv.style.display = "none";
+            }
+            if (estado.jugador.invulnerable && Date.now() > estado.tiempoEscudo) {
+                estado.jugador.invulnerable = false;
+
+
+            }
+            const ahora = Date.now();
+            estado.torretas.forEach(t => {
+                if (ahora - t.ultimodisparo > 2000) {
+                    disparar(t);
+                    t.ultimodisparo = ahora;
+                }
+            });
+            estado.proyectiles.forEach((p, index) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                if (hayChoque(estado.jugador, p) && !estado.jugador.invulnerable) {
+                    estado.vivo = false;
+                    alert(`GAME OVER`);
+                    location.reload();
+
+                }
+                if (p.x < 0 || p.x > window.innerWidth || p.y < 0 || p.y > window.innerHeight) {
+                    p.el.remove();
+                    estado.proyectiles.splice(index, 1);
+                }
+            });
+            if (hayChoque(estado.jugador, estado.enemigo) && !estado.jugador.invulnerable) {
+                estado.vivo = false;
+                alert(`GAME OVER`);
+                location.reload();
+            }
+
+
+        }
+        function pintar() {
+            eljugador.style.left = estado.jugador.x + "px";
+            eljugador.style.top = estado.jugador.y + "px";
+
+            elenemigo.style.left = estado.enemigo.x + "px";
+            elenemigo.style.top = estado.enemigo.y + "px";
+            elpunto.style.left = estado.punto.x + "px";
+
+            elpunto.style.top = estado.punto.y + "px";
+            if (escudoDiv) {
+                escudoDiv.style.display = estado.powerUp.visible ? "block" : "none";
+                if (estado.powerUp.visible) {
+                    escudoDiv.style.left = estado.powerUp.x + "px";
+                    escudoDiv.style.top = estado.powerUp.y + "px";
+                }
+            }
+            if (estado.jugador.invulnerable) {
+                elEscudoProtector.style.display = "block";
+                elEscudoProtector.style.left = (estado.jugador.x - 10) + "px";
+                elEscudoProtector.style.top = (estado.jugador.y - 10) + "px";
+            } else {
+                elEscudoProtector.style.display = "none";
+            }
+
+            estado.torretas.forEach((t, i) => {
+                const el = document.getElementById("torreta-" + i);
+                if (el) {
+                    el.style.left = t.x + "px";
+                    el.style.top = t.y + "px";
+                }
+            });
+            estado.proyectiles.forEach(p => {
+                p.el.style.left = p.x + "px";
+                p.el.style.top = p.y + "px";
+            });
+
+        }
+
+        function animar() {
+            actulizar();
+            pintar();
+
+        }
+        setInterval(animar, 20);
+
+
+        document.addEventListener("keydown", function (e) {
+            if (!estado.vivo) return;
+            const v = estado.jugador.v;
+            if (e.key === "ArrowRight") {
+                estado.jugador.x += v;
+
+            }
+            if (e.key === "ArrowLeft") {
+                estado.jugador.x -= v;
+
+            }
+            if (e.key === "ArrowUp") {
+                estado.jugador.y -= v;
+
+            }
+            if (e.key === "ArrowDown") {
+                estado.jugador.y += v;
+
+            }
+        });
+        spawnPunto();
+
+
+
+    </script>
+
+</body>
