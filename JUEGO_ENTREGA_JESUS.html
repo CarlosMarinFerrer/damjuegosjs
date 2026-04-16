@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JESUS, JUEGO PUZZLE</title>
+    <style>
+        .escenario {
+            border: solid 2px black;
+            background-color: antiquewhite;
+            width: 800px;
+            height: 400px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+        
+
+        .jugador {
+            width: 20px;
+            height: 20px;
+            background-color: rgb(187, 96, 96);
+            position: absolute;
+            border: solid 1px black;
+            /*TENGO QUE ACORDARME SUMAR ESTE PIXEL LUEGO PARA LAS COLISIONES*/
+            top: 10px;
+            left: 10px;
+        }
+
+        .meta {
+            width: 20px;
+            height: 20px;
+            position: absolute;
+            background-color: rgb(22, 142, 20);
+            border: 1px solid rgb(0, 0, 0);
+            bottom: 10px;
+            right: 10px;
+        }
+
+        .pared {
+            position: absolute;
+            background-color: rgb(30, 30, 73);
+            width: 100px;
+            height: 20px;
+
+
+
+        }
+    </style>
+</head>
+
+<body>
+    <h2>LLEGA AL OBJETIVO, SUPERANDO EL OBSTACULO</h2>
+    <h4>Jesús Herrera Alvarado</h4>
+    <p>VIDAS: <span id="vidas-contador">4</span></p>
+    <p>TECLAS PULSADAS: <span id="teclas-pulsadas">0</span> </p>
+
+    <div class="escenario">
+        <div class="jugador"></div>
+        <div class="meta"></div> <!--objetivo final del juego, el jugador tiene que llegar a esta meta para ganar-->
+        <div class="pared"></div>
+        <div class="pared"></div>
+        <div class="pared"></div>
+        <div class="pared"></div>
+        <div class="pared"></div>
+        <div class="pared"></div>
+
+        <div class="pared"></div>
+        <div class="pared"></div>
+        <div class="pared"></div>
+        <div class="pared"></div>
+        <div class="pared"></div>
+        <div class="pared"></div>
+    </div>
+    <script>
+        //estado del jugador inicial, con su posicion y tamaño, y las vidas y teclas pulsadas que lleva
+        let estado = {
+            //se pone los 2 pixeles de mas
+            jugador: { x: 10, y: 10, width: 22, height: 22 },
+            meta: { x: 770, y: 370, width: 20, height: 20 },
+            vidas: 4,
+            teclasPulsadas: 0,
+            juegoActivo: true
+        }
+        let obstaculos = [
+            //OBSTACULOS HORIZONTALES
+            { x: 0, y: 50, width: 300, height: 20, direccionX: 2, direccionY: 0 },
+            { x: 100, y: 150, width: 300, height: 20, direccionX: 2, direccionY: 0 },
+            { x: 0, y: 220, width: 250, height: 20, direccionX: 2, direccionY: 0 },
+            { x: 400, y: 50, width: 300, height: 20, direccionX: 2, direccionY: 0 },
+            { x: 400, y: 150, width: 300, height: 20, direccionX: 2, direccionY: 0 },
+            { x: 400, y: 220, width: 250, height: 20, direccionX: 2, direccionY: 0 },
+            //obstaculos verticales7
+            { x: 100, y: 150, width: 20, height: 150, direccionX: 0, direccionY: 2 },
+            { x: 400, y: 150, width: 20, height: 150, direccionX: 0, direccionY: 2 },
+            { x: 700, y: 150, width: 20, height: 250, direccionX: 2, direccionY: 0 },
+            { x: 200, y: 50, width: 20, height: 299, direccionX: 0, direccionY: 2 },
+            { x: 500, y: 50, width: 20, height: 290, direccionX: 0, direccionY: 2 },
+            { x: 600, y: 50, width: 20, height: 290, direccionX: 0, direccionY: 2 }
+        ];
+
+        const paredes = document.querySelectorAll(".pared");
+        //obtengo los elementos del jugador y la meta para poder modificarlos con js, y asi poder mover al jugador y 
+        // verificar las colisiones con la meta y los obstaculos.
+        const divJugador = document.querySelector(".jugador");
+        const divMeta = document.querySelector(".meta");
+        const divEscenario = document.querySelector(".escenario");
+        const spanVidas = document.getElementById("vidas-contador"); //contenedor de las vidas para poder modificarlo con js
+        const spanTeclasPulsadas = document.getElementById("teclas-pulsadas"); //contenedor de las teclas pulsadas para poder modificarlo con js
+
+        //INICIO LAS PAREDES
+        for (let i = 0; i < paredes.length; i++) {
+            paredes[i].style.left = obstaculos[i].x + "px";
+            paredes[i].style.top = obstaculos[i].y + "px";
+            paredes[i].style.width = obstaculos[i].width + "px";
+            paredes[i].style.height = obstaculos[i].height + "px";
+        }
+        document.addEventListener("keydown", function (event) {
+            if(!estado.juegoActivo){
+                return;
+            }
+            if (event.key === "ArrowRight") {
+                estado.jugador.x += 2;
+            }
+            if (event.key === "ArrowLeft") {
+                estado.jugador.x -= 2;
+            }
+            if (event.key === "ArrowUp") {
+                estado.jugador.y -= 2;
+            }
+            if (event.key === "ArrowDown") {
+                estado.jugador.y += 2;
+
+            }
+            estado.teclasPulsadas++;
+        })
+        //FUNCION PARA LIMITAR EL JUGADOR DENTRO DEL ESCENARIO (basicamente lo que hago es definir del tamaño de la pared)
+        function limitarJugadorEnEscenario() {
+            //SI EL ESTADO DEL JUGADOR EN SU POSICION X ES MENOR QUE 0, ES DECIR SI SALE A LA IZQUIERDA DEL ESCENARIO ENTONCES LO PONGO EN 0
+            if (estado.jugador.x < 0) {
+                estado.jugador.x = 0;
+                //SI EL ESTADO DEL JUGADOR EN SU POSICION Y ES MENOR QUE 0, ES DECIR SI SALE POR ARRIBA DEL ESCENARIO ENTONCES LO PONGO EN 0
+            } if (estado.jugador.y < 0) {
+                estado.jugador.y = 0;
+                //SI EL ESTADO DEL JUGADOR EN SU POSICION X ES MAYOR QUE 780, ES DECIR SI SALE POR LA DERECHA DEL ESCENARIO ENTONCES LO PONGO EN 780
+                // QUE ES EL ANCHO DEL ESCENARIO MENOS EL ANCHO DEL JUGADOR (800-20=780)
+            } if (estado.jugador.x > 780) {
+                estado.jugador.x = 780;
+                //SI EL ESTADO DEL JUGADOR EN SU POSICION Y ES MAYOR QUE 380, ES DECIR SI SALE POR ABAJO DEL ESCENARIO ENTONCES LO PONGO EN 380
+                // QUE ES EL ALTO DEL ESCENARIO MENOS EL ALTO DEL JUGADOR (400-20=380)
+            } if (estado.jugador.y > 380) {
+                estado.jugador.y = 380;
+            }
+
+        }
+        //movimiento de los obstaculos
+        function moverObstaculos() {
+            for (let i = 0; i < obstaculos.length; i++) {
+                let obstaculo = obstaculos[i];
+                //solo se moveran los obstaculos que tengan direccionX o direccionY
+                if (obstaculo.direccionX || obstaculo.direccionY) {
+                    obstaculo.x += obstaculo.direccionX || 0;
+                    obstaculo.y += obstaculo.direccionY || 0;
+                    //cuando el obstaculo toca la posicion x de la pared rebota es decir le cambio la forma en la que se mueve
+                    if (obstaculo.x <= 0 || obstaculo.x + obstaculo.width >= 800) {
+                        obstaculo.direccionX *= -1;
+
+                    }
+                    //cuando el obstaculo toca la posicion y de la pared rebota es decir le cambio la forma en la que se mueve
+                    if (obstaculo.y <= 0 || obstaculo.y + obstaculo.height >= 400) {
+                        obstaculo.direccionY *= -1;
+                    }
+                }
+            }
+        }
+        function hayChoque(a, b) {
+            //verifico que hay choque si..!!
+            //si la caja a esta completamente a la izquierda de b, o completamente a la derecha, o completamente arriba, o completamente abajo,
+            //entonces habria choque, por lo tanto, si no se cumple ninguna de esas condiciones, entonces hay choque,
+            //por eso retorno la negacion de esa condicion, por eso pongo el signo de exclamacion al principio, 
+            // para que si se cumple alguna de esas condiciones, entonces no hay choque, y si no se cumple ninguna, entonces hay choque.
+            return !(
+                a.x + a.width <= b.x ||
+                a.x >= b.x + b.width ||
+                a.y + a.height <= b.y ||
+                a.y >= b.y + b.height
+            );
+        }
+        
+        function colisionesConParedes() {
+            for (let i = 0; i < obstaculos.length; i++) {
+                if (hayChoque(estado.jugador, obstaculos[i])) {
+                    return true //si hay choque con alguna pared, entonces retorno true,       
+                }
+            }
+            return false; //si no hay choque con ninguna pared, 
+            // entonces retorno false, para que se pueda usar esta funcion en el evento de las teclas 
+            // para restar vidas o algo asi, aunque por ahora solo la uso para verificar si hay choque con alguna pared, 
+            // pero no hago nada con esa informacion, es solo para verificar si funciona la funcion de colisiones con paredes.
+        }
+
+        function actualizarEstado() {
+            if (!estado.juegoActivo) {
+                return;
+            }
+            limitarJugadorEnEscenario();
+            moverObstaculos();
+
+            if (colisionesConParedes()) {
+                estado.jugador.x = 10;
+                estado.jugador.y = 10;
+                estado.vidas--;
+            }
+
+            if (hayChoque(estado.jugador, estado.meta)) {
+                estado.juegoActivo = false;
+                alert("Has ganado");
+            }
+
+            if (estado.vidas <= 0) {
+                estado.juegoActivo = false;
+                alert("Has perdido");
+            }
+        }
+        function pintar() {
+            //pinto el estado del jugador y la meta
+            divJugador.style.left = estado.jugador.x + "px"; //modifico la posicion del jugador con el estado del jugador posicion x
+            divJugador.style.top = estado.jugador.y + "px"; //modifico la posicion del jugador con el estado del jugador posicion y
+            divMeta.style.left = estado.meta.x + "px"; //modifico la posicion de la meta con el estado de la meta posicion x
+            divMeta.style.top = estado.meta.y + "px"; //modifico la posicion de la meta con el estado de la meta posicion y
+            for (let i = 0; i < obstaculos.length; i++) {
+                let obstaculo = obstaculos[i];
+                paredes[i].style.left = obstaculo.x + "px";
+                paredes[i].style.top = obstaculo.y + "px";
+            }
+            spanVidas.innerText = estado.vidas;
+            spanTeclasPulsadas.innerText = estado.teclasPulsadas;
+        }
+
+        setInterval(() => {
+            actualizarEstado();
+            pintar();
+            
+        }, 16);
+
+
+
+
+    </script>
+
+</body>
+
+</html>
