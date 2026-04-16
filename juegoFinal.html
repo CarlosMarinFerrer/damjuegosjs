@@ -1,0 +1,273 @@
+<!DOCTYPE html> 
+<html lang="en"> 
+<head> 
+<meta charset="UTF-8"> 
+<title>Laberinto</title> 
+
+<!--VictorEmilioPalmaPicado-->
+
+<style> 
+body {
+  background: black;
+}
+
+/* 🔲 caja del laberinto */
+#escenario {
+  position: relative;
+  width: 1400px;
+  height: 800px;
+  margin: 0 auto;
+  border: 5px solid white;
+  overflow: hidden;
+}
+
+#jugador { 
+  position:absolute; 
+  width:50px; 
+  height:50px; 
+  background:red; 
+} 
+
+.obstaculo { 
+  position: absolute; 
+  height: 20px; 
+  width: 100px; 
+  background: yellow; 
+} 
+
+.coleccionable {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background: gold;
+  border-radius: 50%;
+}
+</style> 
+</head> 
+
+<body> 
+
+<div id="escenario">
+  <div id="jugador"></div> 
+</div>
+
+<script>
+let escenario = document.getElementById("escenario");
+let jugador = document.getElementById("jugador");
+
+let posicionX = 200;
+let posicionY = 100;
+
+let dx = 0;
+let dy = 0;
+
+const obstaculos = [];
+
+// líneas
+function lineaH(x, y, cantidad) {
+  for (let i = 0; i < cantidad; i++) {
+    obstaculos.push({ x: x + i * 100, y: y });
+  }
+}
+
+function lineaV(x, y, cantidad) {
+  for (let i = 0; i < cantidad; i++) {
+    obstaculos.push({ x: x, y: y + i * 100 });
+  }
+}
+
+// bordes del laberinto (dentro del escenario)
+lineaH(0, 0, 14);
+lineaH(0, 780, 14);
+lineaV(0, 0, 9);
+lineaV(1380, 0, 9);
+
+// laberinto
+lineaH(100, 100, 6);
+lineaH(800, 100, 5);
+lineaV(700, 0, 4);
+lineaV(900, 100, 3);
+
+lineaH(200, 300, 8);
+lineaV(500, 300, 4);
+lineaV(1000, 300, 4);
+
+lineaH(300, 500, 6);
+lineaH(800, 500, 4);
+
+lineaV(200, 500, 4);
+lineaH(100, 700, 4);
+
+lineaV(1200, 200, 5);
+lineaH(1000, 700, 4);
+
+lineaH(400, 200, 3);
+lineaV(400, 200, 3);
+
+lineaH(900, 300, 3);
+lineaV(900, 300, 3);
+
+lineaH(600, 600, 4);
+lineaV(700, 600, 3);
+
+let elementosObstaculos = [];
+
+// crear obstáculos dentro del escenario
+obstaculos.forEach(obs => {
+  let div = document.createElement("div");
+  div.classList.add("obstaculo");
+  div.style.left = obs.x + "px";
+  div.style.top = obs.y + "px";
+  escenario.appendChild(div);
+  elementosObstaculos.push(div);
+});
+
+// 🧠 colisión
+function colision(a, b){
+  return !(
+    a.right < b.left ||
+    a.left > b.right ||
+    a.bottom < b.top ||
+    a.top > b.bottom
+  );
+}
+
+// 🔥 posición segura DENTRO del escenario
+function posicionInicialSegura() {
+  let rectEscenario = escenario.getBoundingClientRect();
+
+  for (let y = 0; y < rectEscenario.height; y += 60) {
+    for (let x = 0; x < rectEscenario.width; x += 60) {
+
+      jugador.style.left = x + "px";
+      jugador.style.top = y + "px";
+
+      let rect = jugador.getBoundingClientRect();
+      let libre = true;
+
+      for (let obs of elementosObstaculos) {
+        if (colision(rect, obs.getBoundingClientRect())) {
+          libre = false;
+          break;
+        }
+      }
+
+      if (libre) {
+        posicionX = x;
+        posicionY = y;
+        return;
+      }
+    }
+  }
+}
+
+posicionInicialSegura();
+
+// 🟡 coleccionables dentro del escenario
+let elementosColeccionables = [];
+
+function crearColeccionables() {
+  let total = 5;
+  let intentos = 0;
+
+  let rectEscenario = escenario.getBoundingClientRect();
+
+  while (elementosColeccionables.length < total && intentos < 1000) {
+    intentos++;
+
+    let x = Math.random() * (rectEscenario.width - 30);
+    let y = Math.random() * (rectEscenario.height - 30);
+
+    let fake = document.createElement("div");
+    fake.style.position = "absolute";
+    fake.style.left = x + "px";
+    fake.style.top = y + "px";
+    fake.style.width = "20px";
+    fake.style.height = "20px";
+    escenario.appendChild(fake);
+
+    let rect = fake.getBoundingClientRect();
+    let valido = true;
+
+    for (let obs of elementosObstaculos) {
+      if (colision(rect, obs.getBoundingClientRect())) {
+        valido = false;
+        break;
+      }
+    }
+
+    fake.remove();
+
+    if (valido) {
+      let div = document.createElement("div");
+      div.classList.add("coleccionable");
+      div.style.left = x + "px";
+      div.style.top = y + "px";
+
+      escenario.appendChild(div);
+      elementosColeccionables.push(div);
+    }
+  }
+}
+
+crearColeccionables();
+
+// recoger
+function comprobarColeccionables() {
+  let jugadorRect = jugador.getBoundingClientRect();
+
+  for (let i = elementosColeccionables.length - 1; i >= 0; i--) {
+    let c = elementosColeccionables[i];
+
+    if (colision(jugadorRect, c.getBoundingClientRect())) {
+      c.remove();
+      elementosColeccionables.splice(i, 1);
+    }
+  }
+
+  if (elementosColeccionables.length === 0) {
+    alert("🎉 ¡Ganaste!");
+  }
+}
+
+// movimiento con colisión real
+function mover() {
+  let nuevaX = posicionX + dx;
+  let nuevaY = posicionY + dy;
+
+  jugador.style.left = nuevaX + "px";
+  jugador.style.top = nuevaY + "px";
+
+  let rect = jugador.getBoundingClientRect();
+
+  for (let obs of elementosObstaculos) {
+    if (colision(rect, obs.getBoundingClientRect())) {
+      alert("💥 ¡Choque!");
+      posicionInicialSegura();
+      dx = 0;
+      dy = 0;
+      return;
+    }
+  }
+
+  posicionX = nuevaX;
+  posicionY = nuevaY;
+}
+
+function loop(){
+  mover();
+  comprobarColeccionables();
+  requestAnimationFrame(loop);
+}
+loop();
+
+document.addEventListener("keydown", e=>{
+  if(e.key==="ArrowRight"){ dx=3; dy=0; }
+  if(e.key==="ArrowLeft"){ dx=-3; dy=0; }
+  if(e.key==="ArrowUp"){ dy=-3; dx=0; }
+  if(e.key==="ArrowDown"){ dy=3; dx=0; }
+});
+</script>
+
+</body> 
+</html>
