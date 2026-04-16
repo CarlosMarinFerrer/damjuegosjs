@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Juego simple</title>
+
+  <style>
+    #jugador {
+      position: absolute;
+      width: 50px;
+      height: 50px;
+      background: red;
+    }
+
+    .obstaculo {
+      position: absolute;
+      width: 100px;
+      height: 20px;
+      background: yellow;
+      border: 1px solid black;
+    }
+
+    #boton {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <button id="boton">Reiniciar</button>
+
+  <div id="jugador"></div>
+
+  <div id="obs1" class="obstaculo"></div>
+  <div id="obs2" class="obstaculo"></div>
+  <div id="obs3" class="obstaculo"></div>
+  <div id="obs4" class="obstaculo"></div>
+  <div id="obs5" class="obstaculo"></div>
+  <div id="obs6" class="obstaculo"></div>
+
+  <script>
+
+    // Variable estado, (x,y) es la posicion de del jugador, dx y dy muestra la velocidad de cada eje, vivo: true es para saber que estas con vida, obstaculos 
+    //la posicion de cada obstaculo
+    let estado = {
+      x: 100,
+      y: 100,
+      dx: 0,
+      dy: 0,
+      vivo: true,
+      obstaculos: [
+        { x: 300, y: 200 },
+        { x: 500, y: 400 },
+        { x: 700, y: 150 },
+        { x: 200, y: 500 },
+        { x: 800, y: 300 },
+        { x: 1000, y: 600 }
+      ]
+    };
+
+  
+    let jugador = document.getElementById("jugador");
+    let obs1 = document.getElementById("obs1");
+    let obs2 = document.getElementById("obs2");
+    let obs3 = document.getElementById("obs3");
+    let obs4 = document.getElementById("obs4");
+    let obs5 = document.getElementById("obs5");
+    let obs6 = document.getElementById("obs6");
+    let boton = document.getElementById("boton");
+
+    // TODASLAS FUNCIONES
+
+    // Funcion de choque
+    function choque(x1, y1, x2, y2) {
+      if (x1 < x2 + 100 && x1 + 50 > x2 &&
+        y1 < y2 + 20 && y1 + 50 > y2) {
+        return true;
+      }
+      return false;
+    }
+
+    // actualizar estado
+    function actualizar() {
+
+      if (!estado.vivo) return;
+
+      estado.x += estado.dx;
+      estado.y += estado.dy;
+
+      // limites
+      if (estado.x < 0) estado.x = 0;
+      if (estado.y < 0) estado.y = 0;
+      if (estado.x > window.innerWidth - 50) estado.x = window.innerWidth - 50;
+      if (estado.y > window.innerHeight - 50) estado.y = window.innerHeight - 50;
+
+      // Cada vez que chocas con el obstaculo pierdes
+      for (let i = 0; i < estado.obstaculos.length; i++) {
+        let o = estado.obstaculos[i];
+
+        if (choque(estado.x, estado.y, o.x, o.y)) {
+          estado.vivo = false;
+          alert("has perdido");
+        }
+      }
+    }
+
+    // Esta funcion recrea el mapa cada vez que empieza un juego
+    function dibujar() {
+
+      jugador.style.left = estado.x + "px";
+      jugador.style.top = estado.y + "px";
+
+      obs1.style.left = estado.obstaculos[0].x + "px";
+      obs1.style.top = estado.obstaculos[0].y + "px";
+
+      obs2.style.left = estado.obstaculos[1].x + "px";
+      obs2.style.top = estado.obstaculos[1].y + "px";
+
+      obs3.style.left = estado.obstaculos[2].x + "px";
+      obs3.style.top = estado.obstaculos[2].y + "px";
+
+      obs4.style.left = estado.obstaculos[3].x + "px";
+      obs4.style.top = estado.obstaculos[3].y + "px";
+
+      obs5.style.left = estado.obstaculos[4].x + "px";
+      obs5.style.top = estado.obstaculos[4].y + "px";
+
+      obs6.style.left = estado.obstaculos[5].x + "px";
+      obs6.style.top = estado.obstaculos[5].y + "px";
+    }
+
+    // Bucle paar repetir el juego constantemente
+    function juego() {
+      actualizar();
+      dibujar();
+    }
+
+    setInterval(juego, 20);
+
+    // Detecta cuando cambia de dirección pulsando la tecla
+
+    document.addEventListener("keydown", function (e) {
+
+      if (e.key == "ArrowRight") {
+        estado.dx = 5;
+        estado.dy = 0;
+      }
+
+      if (e.key == "ArrowLeft") {
+        estado.dx = -5;
+        estado.dy = 0;
+      }
+
+      if (e.key == "ArrowUp") {
+        estado.dy = -5;
+        estado.dx = 0;
+      }
+
+      if (e.key == "ArrowDown") {
+        estado.dy = 5;
+        estado.dx = 0;
+      }
+
+    });
+
+    // BOTON PARA PODER REINICIAR EL JUEG0
+    boton.addEventListener("click", function () {
+
+      estado.x = 100;
+      estado.y = 100;
+      estado.dx = 0;
+      estado.dy = 0;
+      estado.vivo = true;
+    });
+  </script>
+
+</body>
+
+</html>
