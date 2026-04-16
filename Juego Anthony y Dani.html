@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Juego</title>
+
+<style>
+    /* Centramos el juego en pantalla */
+    body {
+        margin: 0;
+        background: black;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        color: white;
+        font-family: Arial;
+    }
+
+    /* Zona donde ocurre el juego */
+    #game {
+        position: relative;
+        width: 600px;
+        height: 600px;
+        background: #111;
+        border: 3px solid white;
+        overflow: hidden;
+    }
+
+    /* Jugador */
+    #jugador {
+        position: absolute;
+        width: 40px;
+        height: 40px;
+        background: red;
+    }
+
+    /* Obstáculos */
+    .obstaculo {
+        position: absolute;
+        width: 30px;
+        height: 30px;
+        background: yellow;
+    }
+
+    /* Texto de puntos */
+    #info {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+    }
+
+    /* Pantalla inicial */
+    #inicio {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.8);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 22px;
+    }
+</style>
+</head>
+
+<body>
+
+<div id="game">
+    <div id="jugador"></div>
+    <div id="info">Puntos: 0</div>
+    <div id="inicio">Pulsa ENTER para empezar</div>
+</div>
+
+<script>
+
+// =====================
+// ESTADO DEL JUEGO
+// =====================
+// Aquí guardamos TODO lo importante del juego
+let estado = {
+    jugador: { x: 280, y: 500, dx: 0, dy: 0 },
+    obstaculos: [],
+    puntos: 0,
+    jugando: false,
+    vivo: true
+};
+
+// =====================
+// CREAR OBSTÁCULOS
+// =====================
+// Generamos varios obstáculos al inicio
+for (let i = 0; i < 4; i++) {
+    estado.obstaculos.push({
+        x: Math.random() * 600,
+        y: Math.random() * -400,
+        dy: 3
+    });
+}
+
+// =====================
+// REFERENCIAS AL DOM
+// =====================
+const game = document.getElementById("game");
+const jugadorDOM = document.getElementById("jugador");
+const infoDOM = document.getElementById("info");
+const inicioDOM = document.getElementById("inicio");
+
+// Creamos los obstáculos en pantalla
+estado.obstaculos.forEach(o => {
+    let div = document.createElement("div");
+    div.classList.add("obstaculo");
+    game.appendChild(div);
+    o.dom = div;
+});
+
+// =====================
+// DETECCIÓN DE COLISIÓN
+// =====================
+// Comprueba si el jugador toca un obstáculo
+function colision(a, b) {
+    return !(
+        a.x + 40 < b.x ||
+        a.x > b.x + 30 ||
+        a.y + 40 < b.y ||
+        a.y > b.y + 30
+    );
+}
+
+// =====================
+// ACTUALIZAR ESTADO
+// =====================
+function actualizar() {
+
+    // Si no estamos jugando o ya murió, no hacemos nada
+    if (!estado.jugando || !estado.vivo) return;
+
+    // Movimiento del jugador
+    estado.jugador.x += estado.jugador.dx;
+    estado.jugador.y += estado.jugador.dy;
+
+    // Límites para que no salga del cuadro
+    if (estado.jugador.x < 0) estado.jugador.x = 0;
+    if (estado.jugador.x > 560) estado.jugador.x = 560;
+
+    if (estado.jugador.y < 0) estado.jugador.y = 0;
+    if (estado.jugador.y > 560) estado.jugador.y = 560;
+
+    // Movimiento de obstáculos
+    estado.obstaculos.forEach(o => {
+
+        o.y += o.dy;
+
+        // Si sale por abajo, vuelve arriba y suma punto
+        if (o.y > 600) {
+            o.y = 0;
+            o.x = Math.random() * 600;
+            estado.puntos++;
+        }
+
+        // Si choca con el jugador, se acaba el juego
+        if (colision(estado.jugador, o)) {
+            estado.vivo = false;
+            alert("GAME OVER - Puntos: " + estado.puntos);
+            location.reload();
+        }
+    });
+}
+
+// =====================
+// DIBUJAR (RENDER)
+// =====================
+function dibujar() {
+
+    // Colocamos jugador en pantalla
+    jugadorDOM.style.left = estado.jugador.x + "px";
+    jugadorDOM.style.top = estado.jugador.y + "px";
+
+    // Colocamos obstáculos
+    estado.obstaculos.forEach(o => {
+        o.dom.style.left = o.x + "px";
+        o.dom.style.top = o.y + "px";
+    });
+
+    // Actualizamos puntos
+    infoDOM.textContent = "Puntos: " + estado.puntos;
+
+    // Mostrar o esconder pantalla inicial
+    inicioDOM.style.display = estado.jugando ? "none" : "flex";
+}
+
+// =====================
+// BUCLE DEL JUEGO
+// =====================
+setInterval(function() {
+    actualizar();
+    dibujar();
+}, 20);
+
+// =====================
+// CONTROLES (WASD)
+// =====================
+document.addEventListener("keydown", function(e) {
+
+    // Cambiamos velocidad según tecla
+    if (e.key === "d") estado.jugador.dx = 5;
+    if (e.key === "a") estado.jugador.dx = -5;
+    if (e.key === "w") estado.jugador.dy = -5;
+    if (e.key === "s") estado.jugador.dy = 5;
+
+    // Empezar juego
+    if (e.key === "Enter") {
+        estado.jugando = true;
+    }
+
+});
+
+document.addEventListener("keyup", function(e) {
+
+    // Cuando soltamos tecla, paramos movimiento
+    if (["w","a","s","d"].includes(e.key)) {
+        estado.jugador.dx = 0;
+        estado.jugador.dy = 0;
+    }
+
+});
+
+</script>
+</body>
+</html>
