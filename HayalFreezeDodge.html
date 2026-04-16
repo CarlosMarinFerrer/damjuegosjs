@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time Freeze Shooter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            background: #ffffff;
+            border: 4px solid #333333;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        #ui {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            color: #333333;
+            font-size: 16px;
+            z-index: 100;
+            line-height: 1.6;
+            font-weight: 600;
+        }
+
+        #ui span {
+            color: #0066cc;
+            font-weight: bold;
+        }
+
+        #ui .frozen {
+            color: #0099cc;
+        }
+
+        #player {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background: #0066cc;
+            border: 2px solid #004499;
+            border-radius: 4px;
+            z-index: 10;
+        }
+
+        .bullet {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: #cc3333;
+            border: 1px solid #992222;
+            border-radius: 2px;
+        }
+
+        #game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            border: 3px solid #333333;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            display: none;
+            z-index: 100;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        }
+
+        #game-over h2 {
+            color: #cc3333;
+            font-size: 36px;
+            margin-bottom: 15px;
+        }
+
+        #game-over p {
+            color: #333333;
+            font-size: 18px;
+        }
+
+        #instructions {
+            position: absolute;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #666666;
+            font-size: 14px;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: 1px solid #dddddd;
+        }
+    </style>
+<base target="_blank">
+</head>
+<body>
+    <div id="game-container">
+        <div id="ui">
+            <div>TIME: <span id="time-display">FLOWING</span></div>
+            <div>SCORE: <span id="score">0</span></div>
+            <div>WAVE: <span id="wave">1</span></div>
+        </div>
+        <div id="player"></div>
+        <div id="game-over">
+            <h2>GAME OVER</h2>
+            <p>Press R to restart</p>
+        </div>
+        <div id="instructions">
+            WASD / Arrows to move • SPACE to freeze time
+        </div>
+    </div>
+
+    <script>
+
+        const estado = {
+            player: {
+                x: 400,
+                y: 300,
+                vx: 0,
+                vy: 0,
+                speed: 5,
+                width: 24,
+                height: 24
+            },
+            bullets: [],
+            timeFrozen: false,
+            timeMultiplier: 1,
+            alive: true,
+            score: 0,
+            wave: 1,
+            bulletSpawnTimer: 0,
+            waveTimer: 0,
+            keys: {
+                ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false,
+                w: false, s: false, a: false, d: false,
+                " ": false
+            }
+        };
+
+        const container = document.getElementById('game-container');
+        const playerEl = document.getElementById('player');
+        const timeDisplay = document.getElementById('time-display');
+        const scoreDisplay = document.getElementById('score');
+        const waveDisplay = document.getElementById('wave');
+        const gameOverEl = document.getElementById('game-over');
+
+        document.addEventListener('keydown', (e) => {
+            if (estado.keys.hasOwnProperty(e.key)) {
+                estado.keys[e.key] = true;
+            }
+            if (e.key === ' ' && estado.alive) {
+                estado.timeFrozen = true;
+            }
+            if (e.key.toLowerCase() === 'r' && !estado.alive) {
+                resetGame();
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (estado.keys.hasOwnProperty(e.key)) {
+                estado.keys[e.key] = false;
+            }
+            if (e.key === ' ') {
+                estado.timeFrozen = false;
+            }
+        });
+
+        function updatePlayer() {
+            let dx = 0;
+            let dy = 0;
+
+            if (estado.keys.ArrowUp || estado.keys.w) dy -= 1;
+            if (estado.keys.ArrowDown || estado.keys.s) dy += 1;
+            if (estado.keys.ArrowLeft || estado.keys.a) dx -= 1;
+            if (estado.keys.ArrowRight || estado.keys.d) dx += 1;
+
+            if (dx !== 0 && dy !== 0) {
+                dx *= 0.707;
+                dy *= 0.707;
+            }
+
+            estado.player.vx = dx * estado.player.speed;
+            estado.player.vy = dy * estado.player.speed;
+            estado.player.x += estado.player.vx;
+            estado.player.y += estado.player.vy;
+
+            // Keep player within bounds (using half dimensions for center-based positioning)
+            const halfWidth = estado.player.width / 2;
+            const halfHeight = estado.player.height / 2;
+            estado.player.x = Math.max(halfWidth, Math.min(800 - halfWidth, estado.player.x));
+            estado.player.y = Math.max(halfHeight, Math.min(600 - halfHeight, estado.player.y));
+        }
+
+        function spawnBullet() {
+            const side = Math.floor(Math.random() * 4);
+            let x, y, vx, vy;
+            const speed = 2 + estado.wave * 0.3;
+
+            switch(side) {
+                case 0:
+                    x = Math.random() * 800;
+                    y = -20;
+                    vx = (Math.random() - 0.5) * speed;
+                    vy = speed;
+                    break;
+                case 1:
+                    x = 820;
+                    y = Math.random() * 600;
+                    vx = -speed;
+                    vy = (Math.random() - 0.5) * speed;
+                    break;
+                case 2:
+                    x = Math.random() * 800;
+                    y = 620;
+                    vx = (Math.random() - 0.5) * speed;
+                    vy = -speed;
+                    break;
+                case 3:
+                    x = -20;
+                    y = Math.random() * 600;
+                    vx = speed;
+                    vy = (Math.random() - 0.5) * speed;
+                    break;
+            }
+
+            estado.bullets.push({
+                x: x,
+                y: y,
+                vx: vx,
+                vy: vy,
+                width: 12,
+                height: 12,
+                element: null
+            });
+        }
+
+        function updateBullets() {
+            estado.timeMultiplier = estado.timeFrozen ? 0.05 : 1;
+
+            estado.bulletSpawnTimer++;
+            const spawnRate = Math.max(10, 40 - estado.wave * 3);
+            if (estado.bulletSpawnTimer >= spawnRate) {
+                spawnBullet();
+                estado.bulletSpawnTimer = 0;
+            }
+
+            for (let i = estado.bullets.length - 1; i >= 0; i--) {
+                const b = estado.bullets[i];
+                b.x += b.vx * estado.timeMultiplier;
+                b.y += b.vy * estado.timeMultiplier;
+
+                if (b.x < -50 || b.x > 850 || b.y < -50 || b.y > 650) {
+                    estado.bullets.splice(i, 1);
+                    if (b.element) b.element.remove();
+                }
+            }
+        }
+
+        function checkCollisions() {
+            const p = estado.player;
+            // Calculate player borders (player position is center-based)
+            const pLeft = p.x - p.width / 2;
+            const pRight = p.x + p.width / 2;
+            const pTop = p.y - p.height / 2;
+            const pBottom = p.y + p.height / 2;
+
+            for (const b of estado.bullets) {
+                // Calculate bullet borders (bullet position is center-based)
+                const bLeft = b.x - b.width / 2;
+                const bRight = b.x + b.width / 2;
+                const bTop = b.y - b.height / 2;
+                const bBottom = b.y + b.height / 2;
+
+                // AABB collision detection using borders
+                if (pLeft < bRight && pRight > bLeft && pTop < bBottom && pBottom > bTop) {
+                    estado.alive = false;
+                    return;
+                }
+            }
+        }
+
+        function updateWave() {
+            estado.waveTimer++;
+            if (estado.waveTimer >= 600) {
+                estado.wave++;
+                estado.waveTimer = 0;
+                estado.score += 100;
+            }
+            if (!estado.timeFrozen) {
+                estado.score += 0.1;
+            }
+        }
+
+        function actualizar() {
+            if (!estado.alive) return;
+
+            updatePlayer();
+            updateBullets();
+            checkCollisions();
+            updateWave();
+        }
+
+        function dibujar() {
+            timeDisplay.textContent = estado.timeFrozen ? 'FROZEN' : 'FLOWING';
+            timeDisplay.className = estado.timeFrozen ? 'frozen' : '';
+            scoreDisplay.textContent = Math.floor(estado.score);
+            waveDisplay.textContent = estado.wave;
+
+            playerEl.style.left = (estado.player.x - estado.player.width / 2) + 'px';
+            playerEl.style.top = (estado.player.y - estado.player.height / 2) + 'px';
+
+            estado.bullets.forEach(b => {
+                if (!b.element) {
+                    b.element = document.createElement('div');
+                    b.element.className = 'bullet';
+                    container.appendChild(b.element);
+                }
+                b.element.style.left = (b.x - b.width / 2) + 'px';
+                b.element.style.top = (b.y - b.height / 2) + 'px';
+            });
+
+            gameOverEl.style.display = estado.alive ? 'none' : 'block';
+        }
+
+        function animar() {
+            actualizar();
+            dibujar();
+        }
+
+        function resetGame() {
+            estado.player.x = 400;
+            estado.player.y = 300;
+            estado.player.vx = 0;
+            estado.player.vy = 0;
+
+            estado.bullets.forEach(b => { if (b.element) b.element.remove(); });
+            estado.bullets = [];
+
+            estado.timeFrozen = false;
+            estado.timeMultiplier = 1;
+            estado.alive = true;
+            estado.score = 0;
+            estado.wave = 1;
+            estado.bulletSpawnTimer = 0;
+            estado.waveTimer = 0;
+
+            gameOverEl.style.display = 'none';
+        }
+
+        setInterval(animar, 16);
+    </script>
+</body>
+</html>
