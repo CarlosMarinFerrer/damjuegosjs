@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fruity Doom</title>
+    <style>
+        body {
+            background-color: #222;
+            color: white;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 32px;
+            letter-spacing: 2px;
+            color: #4da6ff;
+            margin-bottom: 20px;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+
+        #marcador {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 25px;
+            color: yellow;
+        }
+
+        #tablero {
+            position: relative;
+            width: 500px;
+            height: 500px;
+            background-color: black;
+            border: 4px solid #4da6ff;
+            overflow: hidden;
+            border-radius: 8px;
+        }
+
+        #pacman {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background-color: yellow;
+            border-radius: 50%;
+            z-index: 10;
+        }
+
+        .segmento-cola {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background-color: #d4d400;
+            border-radius: 50%;
+            z-index: 5;
+            display: none;
+
+            /* Ocultamos los divs de la cola en CSS y luego los mostraremos con JS según crezcamos */
+        }
+
+        .fantasma {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border-radius: 50% 50% 0 0;
+            z-index: 8;
+        }
+
+        #fantasma1 {
+            background-color: red;
+        }
+
+        #fantasma2 {
+            background-color: cyan;
+        }
+
+        #fruta {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: #ff0055;
+            border-radius: 50%;
+        }
+
+        p {
+            margin-top: 25px;
+            font-size: 14px;
+            color: #aaaaaa;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Fruity Doom</h1>
+    <div id="marcador">Puntos: 0 | Vidas: 3</div>
+
+    <div id="tablero">
+        <div id="pacman"></div>
+        <div id="fantasma1" class="fantasma"></div>
+        <div id="fantasma2" class="fantasma"></div>
+        <div id="fruta"></div>
+
+        <div id="cola0" class="segmento-cola"></div>
+        <div id="cola1" class="segmento-cola"></div>
+        <div id="cola2" class="segmento-cola"></div>
+        <div id="cola3" class="segmento-cola"></div>
+        <div id="cola4" class="segmento-cola"></div>
+        <div id="cola5" class="segmento-cola"></div>
+        <div id="cola6" class="segmento-cola"></div>
+        <div id="cola7" class="segmento-cola"></div>
+        <div id="cola8" class="segmento-cola"></div>
+        <div id="cola9" class="segmento-cola"></div>
+        <div id="cola10" class="segmento-cola"></div>
+        <div id="cola11" class="segmento-cola"></div>
+        <div id="cola12" class="segmento-cola"></div>
+        <div id="cola13" class="segmento-cola"></div>
+        <div id="cola14" class="segmento-cola"></div>
+        <div id="cola15" class="segmento-cola"></div>
+        <div id="cola16" class="segmento-cola"></div>
+        <div id="cola17" class="segmento-cola"></div>
+        <div id="cola18" class="segmento-cola"></div>
+        <div id="cola19" class="segmento-cola"></div>
+    </div>
+
+    <p>Usa las Flechas o W, A, S, D. Si un fantasma pisa tu cola, ¡te resta 10 puntos por trozo!</p>
+
+    <script>
+
+        // Esta función crea un "cuadrado invisible" alrededor de un objeto para calcular dónde empieza y termina
+
+        function obtenerCaja(obj) {
+            return {
+                izquierda: obj.x,
+                derecha: obj.x + (obj.ancho || 30),
+                arriba: obj.y,
+                abajo: obj.y + (obj.alto || 30)
+            };
+        }
+
+        // Revisa si los bordes de dos objetos se tocan para saber si hay un choque
+
+        function hayChoque(a, b) {
+            return !(
+                a.derecha < b.izquierda ||
+                a.izquierda > b.derecha ||
+                a.abajo < b.arriba ||
+                a.arriba > b.abajo
+            );
+        }
+
+
+        // Aquí guardamos toda la información del juego (posiciones, puntos y vidas) en un solo lugar
+
+        let estado = {
+            pacman: { x: 235, y: 300, ancho: 30, alto: 30, dx: 0, dy: 0 },
+            tamanoCola: 0,
+            historial: [], // Guardamos por dónde ha pasado Pacman para que la cola lo siga
+            fantasma1: { x: 50, y: 50, ancho: 30, alto: 30, dx: 3, dy: 3 },
+            fantasma2: { x: 400, y: 100, ancho: 30, alto: 30, dx: -4, dy: 2 },
+            fruta: { x: 240, y: 100, ancho: 20, alto: 20 },
+            puntos: 0,
+            vidas: 3,
+            vivo: true,
+            framesCastigo: 0 // Controla el parpadeo rojo del marcador cuando perdemos la cola
+        };
+
+        const SEPARACION_FRAMES = 6; // Para que los trozos de cola no estén pegados unos encima de otros
+
+
+        /* Guardamos los elementos de la pantalla en variables una sola vez, 
+        así el navegador no tiene que buscarlos en cada fotograma y el juego va fluido */
+
+        const divPacman = document.getElementById("pacman");
+        const divFantasma1 = document.getElementById("fantasma1");
+        const divFantasma2 = document.getElementById("fantasma2");
+        const divFruta = document.getElementById("fruta");
+        const divMarcador = document.getElementById("marcador");
+
+        const divsCola = [
+            document.getElementById("cola0"), document.getElementById("cola1"),
+            document.getElementById("cola2"), document.getElementById("cola3"),
+            document.getElementById("cola4"), document.getElementById("cola5"),
+            document.getElementById("cola6"), document.getElementById("cola7"),
+            document.getElementById("cola8"), document.getElementById("cola9"),
+            document.getElementById("cola10"), document.getElementById("cola11"),
+            document.getElementById("cola12"), document.getElementById("cola13"),
+            document.getElementById("cola14"), document.getElementById("cola15"),
+            document.getElementById("cola16"), document.getElementById("cola17"),
+            document.getElementById("cola18"), document.getElementById("cola19")
+        ];
+
+
+        // Aquí solo calculamos números, sumamos puntos y restamos vidas
+
+        function comprobarChoque() {
+            let cajaPacman = obtenerCaja(estado.pacman);
+            let cajaFruta = obtenerCaja(estado.fruta);
+            let cajaF1 = obtenerCaja(estado.fantasma1);
+            let cajaF2 = obtenerCaja(estado.fantasma2);
+
+            // Regla 1: Si tocamos la fruta, suben los puntos y crece la cola
+
+            if (hayChoque(cajaPacman, cajaFruta)) {
+                estado.puntos = estado.puntos + 10;
+                if (estado.tamanoCola < 20) {
+                    estado.tamanoCola = estado.tamanoCola + 1;
+                }
+
+                // Movemos la fruta a una posición aleatoria en el estado
+
+                estado.fruta.x = Math.floor(Math.random() * 450);
+                estado.fruta.y = Math.floor(Math.random() * 450);
+            }
+
+            let chocaPared = (estado.pacman.x < 0 || estado.pacman.x > 470 || estado.pacman.y < 0 || estado.pacman.y > 470);
+
+            // Regla 2: Chocar con fantasmas o pared quita una vida y resetea las posiciones
+
+            if (hayChoque(cajaPacman, cajaF1) || hayChoque(cajaPacman, cajaF2) || chocaPared) {
+                estado.vidas = estado.vidas - 1;
+                if (estado.vidas <= 0) {
+                    estado.vivo = false; // Fin del juego
+                } else {
+                    estado.pacman.x = 235;
+                    estado.pacman.y = 300;
+                    estado.pacman.dx = 0;
+                    estado.pacman.dy = 0;
+                    estado.tamanoCola = 0;
+                    estado.historial = [];
+                }
+                return;
+            }
+
+            // Regla 3: Si los fantasmas tocan un trozo de la cola, la cortan por ahí y restan puntos
+
+            for (let i = 0; i < estado.tamanoCola; i++) {
+                let indiceRetraso = (i + 1) * SEPARACION_FRAMES - 1;
+                let posCola = estado.historial[indiceRetraso];
+
+                if (posCola) {
+                    let cajaCola = {
+                        izquierda: posCola.x, derecha: posCola.x + 30,
+                        arriba: posCola.y, abajo: posCola.y + 30
+                    };
+
+                    if (hayChoque(cajaCola, cajaF1) || hayChoque(cajaCola, cajaF2)) {
+                        let segmentosPerdidos = estado.tamanoCola - i;
+                        estado.tamanoCola = i; // Cortamos la cola
+                        estado.puntos = estado.puntos - (segmentosPerdidos * 10);
+                        if (estado.puntos < 0) estado.puntos = 0;
+                        estado.framesCastigo = 20; // Activamos la alarma visual en el marcador
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Aquí calculamos los nuevos movimientos y aplicamos las reglas paso a paso
+
+        function actualizar() {
+            if (!estado.vivo) return;
+
+            if (estado.framesCastigo > 0) estado.framesCastigo = estado.framesCastigo - 1;
+
+            // Guardamos el camino de Pacman para que la cola sepa por dónde ir
+
+            if (estado.pacman.dx !== 0 || estado.pacman.dy !== 0) {
+                estado.historial.unshift({ x: estado.pacman.x, y: estado.pacman.y });
+                let limiteHistorial = (estado.tamanoCola + 1) * SEPARACION_FRAMES;
+                if (estado.historial.length > limiteHistorial) estado.historial.pop();
+            }
+
+            // Movemos a los personajes sumando la velocidad (dx, dy) a la posición actual
+
+            estado.pacman.x = estado.pacman.x + estado.pacman.dx;
+            estado.pacman.y = estado.pacman.y + estado.pacman.dy;
+
+            estado.fantasma1.x = estado.fantasma1.x + estado.fantasma1.dx;
+            estado.fantasma1.y = estado.fantasma1.y + estado.fantasma1.dy;
+            if (estado.fantasma1.x <= 0 || estado.fantasma1.x >= 470) estado.fantasma1.dx = estado.fantasma1.dx * -1; // Rebote
+            if (estado.fantasma1.y <= 0 || estado.fantasma1.y >= 470) estado.fantasma1.dy = estado.fantasma1.dy * -1;
+
+            estado.fantasma2.x = estado.fantasma2.x + estado.fantasma2.dx;
+            estado.fantasma2.y = estado.fantasma2.y + estado.fantasma2.dy;
+            if (estado.fantasma2.x <= 0 || estado.fantasma2.x >= 470) estado.fantasma2.dx = estado.fantasma2.dx * -1;
+            if (estado.fantasma2.y <= 0 || estado.fantasma2.y >= 470) estado.fantasma2.dy = estado.fantasma2.dy * -1;
+
+            comprobarChoque();
+        }
+
+        /* Esta es la única función que modifica el HTML y el CSS, lee los valores del "estado" y los traduce a pixeles en la pantalla */
+
+        function dibujar() {
+            if (!estado.vivo) {
+                divMarcador.innerHTML = "¡GAME OVER! Puntos finales: " + estado.puntos;
+                divMarcador.style.color = "red";
+                return;
+            }
+
+            divMarcador.innerHTML = "Puntos: " + estado.puntos + " | Vidas: " + estado.vidas;
+
+            if (estado.framesCastigo > 0) {
+                divMarcador.style.color = "red";
+            } else {
+                divMarcador.style.color = "yellow";
+            }
+
+            divPacman.style.left = estado.pacman.x + "px";
+            divPacman.style.top = estado.pacman.y + "px";
+
+            divFantasma1.style.left = estado.fantasma1.x + "px";
+            divFantasma1.style.top = estado.fantasma1.y + "px";
+
+            divFantasma2.style.left = estado.fantasma2.x + "px";
+            divFantasma2.style.top = estado.fantasma2.y + "px";
+
+            divFruta.style.left = estado.fruta.x + "px";
+            divFruta.style.top = estado.fruta.y + "px";
+
+            // Encendemos (display: block) o apagamos (display: none) los divs de la cola según toque
+
+            for (let i = 0; i < divsCola.length; i++) {
+                if (i < estado.tamanoCola) {
+                    let indiceRetraso = (i + 1) * SEPARACION_FRAMES - 1;
+                    if (estado.historial[indiceRetraso]) {
+                        divsCola[i].style.left = estado.historial[indiceRetraso].x + "px";
+                        divsCola[i].style.top = estado.historial[indiceRetraso].y + "px";
+                        divsCola[i].style.display = "block";
+                    } else {
+                        divsCola[i].style.display = "none";
+                    }
+                } else {
+                    divsCola[i].style.display = "none";
+                }
+            }
+        }
+
+        // Hacemos que todo el juego se actualice en bucle muy rápido (cada 25 milisegundos) para que el movimiento sea fluido
+
+        function animar() {
+            actualizar();
+            dibujar();
+        }
+
+        setInterval(animar, 25);
+
+        // Aquí no tocamos el DOM directamente, solo captamos la tecla pulsada y modificamos las variables numéricas del "estado"
+
+        document.addEventListener("keydown", function (e) {
+            let vaDerecha = estado.pacman.dx > 0;
+            let vaIzquierda = estado.pacman.dx < 0;
+            let vaAbajo = estado.pacman.dy > 0;
+            let vaArriba = estado.pacman.dy < 0;
+
+            // Evitamos que Pacman pueda dar la vuelta sobre sí mismo de golpe
+
+            if ((e.key === "ArrowRight" || e.key === "d" || e.key === "D") && !vaIzquierda) {
+                estado.pacman.dx = 5;
+                estado.pacman.dy = 0;
+            }
+            if ((e.key === "ArrowLeft" || e.key === "a" || e.key === "A") && !vaDerecha) {
+                estado.pacman.dx = -5;
+                estado.pacman.dy = 0;
+            }
+            if ((e.key === "ArrowUp" || e.key === "w" || e.key === "W") && !vaAbajo) {
+                estado.pacman.dy = -5;
+                estado.pacman.dx = 0;
+            }
+            if ((e.key === "ArrowDown" || e.key === "s" || e.key === "S") && !vaArriba) {
+                estado.pacman.dy = 5;
+                estado.pacman.dx = 0;
+            }
+        });
+
+    </script>
+</body>
+
+</html>
