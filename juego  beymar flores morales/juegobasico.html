@@ -1,0 +1,160 @@
+﻿<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Juego Mejorado</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #111;
+      }
+      #jugador {
+        position: absolute;
+        width: 40px;
+        height: 40px;
+        background: lime;
+      }
+      .obstaculo {
+        position: absolute;
+        width: 30px;
+        height: 30px;
+        background: red;
+      }
+      #score {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        color: white;
+        font-size: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="jugador"></div>
+    <div id="score">Puntos: 0</div>
+
+    <script>
+      let jugador = document.getElementById("jugador");<!--declaración de variables jugador  --> 
+      let scoreText = document.getElementById("score"); //declaración de variables scoreText get elementById score sirve para obtener el elemento del DOM con el id score y asignarlo a la variable scoreText
+
+      let estado = {
+        jugador: { x: 200, y: 400, ancho: 40, alto: 40, dx: 0, dy: 0 },
+        obstaculos: [],
+        vivo: true,
+        puntos: 0,
+      };//declaración de variables estado que es un objeto que contiene la información del jugador, los obstáculos, si el jugador está vivo y los puntos obtenidos
+
+      let gravedad = 0.5;
+      let velocidad = 5;
+
+      function crearObstaculo() {
+        let obs = document.createElement("div");
+        obs.classList.add("obstaculo");
+        document.body.appendChild(obs);
+
+        estado.obstaculos.push({
+          el: obs,
+          x: Math.random() * window.innerWidth,
+          y: -30,
+          ancho: 30,
+          alto: 30,
+          dy: Math.random() * 3 + 2,
+        });
+      }//función crearObstaculo que crea un nuevo elemento div con la clase obstaculo, lo agrega al cuerpo del documento y lo añade al array de obstáculos en el estado con propiedades como posición, tamaño y velocidad de caída
+
+      setInterval(crearObstaculo, 1000);//llama a la función crearObstaculo cada 1000 milisegundos (1 segundo) para generar nuevos obstáculos de forma periódica
+
+      function obtenerCaja(o) {
+        return {
+          izq: o.x,
+          der: o.x + o.ancho,
+          arr: o.y,
+          aba: o.y + o.alto,
+        };
+      }//función obtenerCaja que toma un objeto con propiedades de posición y tamaño y devuelve un nuevo objeto con las coordenadas de los bordes izquierdo, derecho, superior e inferior, lo que facilita la detección de colisiones entre el jugador y los obstáculos
+
+      function choque(a, b) {
+        return !(
+          a.der < b.izq ||
+          a.izq > b.der ||
+          a.aba < b.arr ||
+          a.arr > b.aba
+        );
+      }//función choque que toma dos objetos con propiedades de bordes y devuelve true si hay una colisión entre ellos, es decir, si no se cumplen las condiciones de no colisión (uno de los objetos está completamente a la izquierda, derecha, arriba o abajo del otro)
+
+      function actualizar() {
+        if (!estado.vivo) return;
+
+        estado.jugador.x += estado.jugador.dx;
+        estado.jugador.y += estado.jugador.dy;
+
+        // límites
+        if (estado.jugador.x < 0) estado.jugador.x = 0;
+        if (estado.jugador.x > window.innerWidth - 40)
+          estado.jugador.x = window.innerWidth - 40;
+        if (estado.jugador.y < 0) estado.jugador.y = 0;
+        if (estado.jugador.y > window.innerHeight - 40)
+          estado.jugador.y = window.innerHeight - 40;
+
+        let cajaJ = obtenerCaja(estado.jugador);
+
+        estado.obstaculos.forEach((o, i) => {
+          o.y += o.dy;
+
+          let cajaO = obtenerCaja(o);
+
+          if (choque(cajaJ, cajaO)) {
+            estado.vivo = false;
+            alert("💀 Game Over - Puntos: " + estado.puntos);
+            location.reload();
+          }
+
+          if (o.y > window.innerHeight) {
+            o.el.remove();
+            estado.obstaculos.splice(i, 1);
+            estado.puntos++;
+          }
+        });
+
+        scoreText.innerText = "Puntos: " + estado.puntos;
+      }
+      //función actualizar que se encarga de actualizar la posición del jugador según su velocidad, aplicar límites para que no salga de la pantalla, verificar colisiones con los obstáculos y actualizar el puntaje cuando un obstáculo sale de la pantalla, además de manejar el estado de vida del jugador y mostrar un mensaje de Game Over cuando colisiona con un obstáculo
+
+      function dibujar() {
+        jugador.style.left = estado.jugador.x + "px";
+        jugador.style.top = estado.jugador.y + "px";
+
+        estado.obstaculos.forEach((o) => {
+          o.el.style.left = o.x + "px";
+          o.el.style.top = o.y + "px";
+        });
+      }
+      //función dibujar que actualiza la posición visual del jugador y los obstáculos en el DOM, estableciendo las propiedades CSS left y top según las coordenadas actuales del estado del juego
+
+      function loop() {
+        actualizar();
+        dibujar();
+        requestAnimationFrame(loop);
+      }
+      //función loop que es la función principal del juego, llama a las funciones actualizar y dibujar en cada frame utilizando requestAnimationFrame para crear un ciclo de juego fluido
+
+      loop();//inicia el ciclo del juego llamando a la función loop por primera vez
+
+      // controles
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowRight") estado.jugador.dx = velocidad;
+        if (e.key === "ArrowLeft") estado.jugador.dx = -velocidad;
+        if (e.key === "ArrowUp") estado.jugador.dy = -velocidad;
+        if (e.key === "ArrowDown") estado.jugador.dy = velocidad;
+      });
+      //evento keydown que escucha las teclas de flecha para mover al jugador en la dirección correspondiente, actualizando las propiedades dx y dy del jugador en el estado del juego
+      window.addEventListener("keyup", (e) => {
+        estado.jugador.dx = 0;
+        estado.jugador.dy = 0;
+      });
+      //evento keyup que detiene el movimiento del jugador al soltar cualquier tecla, estableciendo dx y dy a 0 para que el jugador deje de moverse
+    </script>
+  </body>
+</html>
