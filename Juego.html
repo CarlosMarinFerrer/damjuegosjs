@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Gravity Lab FIX</title>
+<style>
+  body { margin: 0; background: black; color: white; font-family: sans-serif; }
+  #juego {
+    position: relative;
+    width: 600px;
+    height: 600px;
+    margin: auto;
+    background: #111;
+  }
+  .obj { position: absolute; }
+  .jugador { width: 30px; height: 30px; background: cyan; }
+  .muro { background: gray; }
+  .meta { width: 30px; height: 30px; background: gold; }
+  .muerte { background: crimson; }
+</style>
+</head>
+<body>
+
+<div id="juego"></div>
+<div id="ui"></div>
+
+<script>
+// 1. ESTADO
+let niveles = [
+  {
+    jugador: { x: 50, y: 50 },
+    meta: { x: 520, y: 520 },
+    muros: [
+      { x: 200, y: 0, w: 30, h: 400 }
+    ],
+    muerte: []
+  },
+  {
+    jugador: { x: 50, y: 500 },
+    meta: { x: 500, y: 50 },
+    muros: [
+      { x: 150, y: 150, w: 300, h: 30 }
+    ],
+    muerte: [
+      { x: 300, y: 300, w: 200, h: 30 }
+    ]
+  }
+];
+
+let estado = {
+  nivel: 0,
+  jugador: { x: 0, y: 0, dx: 0, dy: 0, size: 30 },
+  gravedad: { x: 0, y: 1 },
+  tiempo: 0,
+  ganado: false
+};
+
+const juego = document.getElementById("juego");
+
+// jugador DOM
+const jugadorDiv = document.createElement("div");
+jugadorDiv.className = "obj jugador";
+juego.appendChild(jugadorDiv);
+
+// utilidades
+function caja(o) {
+  return {
+    i: o.x,
+    d: o.x + (o.w || o.size),
+    a: o.y,
+    b: o.y + (o.h || o.size)
+  };
+}
+
+function choque(a, b) {
+  return !(a.d < b.i || a.i > b.d || a.b < b.a || a.a > b.b);
+}
+
+// cargar nivel
+function cargarNivel() {
+  let n = niveles[estado.nivel];
+  estado.jugador.x = n.jugador.x;
+  estado.jugador.y = n.jugador.y;
+}
+
+// 3. ACTUALIZAR
+function actualizar() {
+  if (estado.ganado) return;
+
+  estado.tiempo++;
+
+  // aplicar gravedad
+  estado.jugador.dx = estado.gravedad.x * 3;
+  estado.jugador.dy = estado.gravedad.y * 3;
+
+  estado.jugador.x += estado.jugador.dx;
+  estado.jugador.y += estado.jugador.dy;
+
+  let j = caja(estado.jugador);
+  let nivel = niveles[estado.nivel];
+
+  // muros
+  nivel.muros.forEach(m => {
+    if (choque(j, caja(m))) {
+      estado.jugador.x -= estado.jugador.dx;
+      estado.jugador.y -= estado.jugador.dy;
+    }
+  });
+
+  // muerte
+  nivel.muerte.forEach(m => {
+    if (choque(j, caja(m))) {
+      cargarNivel();
+    }
+  });
+
+  // meta
+  if (choque(j, caja(nivel.meta))) {
+    estado.nivel++;
+    if (estado.nivel >= niveles.length) {
+      estado.ganado = true;
+    } else {
+      cargarNivel();
+    }
+  }
+
+  // limites
+  estado.jugador.x = Math.max(0, Math.min(570, estado.jugador.x));
+  estado.jugador.y = Math.max(0, Math.min(570, estado.jugador.y));
+}
+
+// 4. DIBUJAR
+function dibujar() {
+  jugadorDiv.style.left = estado.jugador.x + "px";
+  jugadorDiv.style.top = estado.jugador.y + "px";
+
+  // limpiar
+  document.querySelectorAll(".gen").forEach(e => e.remove());
+
+  if (estado.ganado) {
+    document.getElementById("ui").innerText = "🏆 GANASTE";
+    return;
+  }
+
+  let nivel = niveles[estado.nivel];
+
+  // muros
+  nivel.muros.forEach(m => {
+    let d = document.createElement("div");
+    d.className = "obj muro gen";
+    d.style.left = m.x + "px";
+    d.style.top = m.y + "px";
+    d.style.width = m.w + "px";
+    d.style.height = m.h + "px";
+    juego.appendChild(d);
+  });
+
+  // muerte
+  nivel.muerte.forEach(m => {
+    let d = document.createElement("div");
+    d.className = "obj muerte gen";
+    d.style.left = m.x + "px";
+    d.style.top = m.y + "px";
+    d.style.width = m.w + "px";
+    d.style.height = m.h + "px";
+    juego.appendChild(d);
+  });
+
+  // meta
+  let meta = document.createElement("div");
+  meta.className = "obj meta gen";
+  meta.style.left = nivel.meta.x + "px";
+  meta.style.top = nivel.meta.y + "px";
+  juego.appendChild(meta);
+
+  // UI
+  document.getElementById("ui").innerText =
+    "Nivel: " + (estado.nivel + 1) +
+    " | Tiempo: " + Math.floor(estado.tiempo / 30);
+}
+
+// loop
+setInterval(() => {
+  actualizar();
+  dibujar();
+}, 30);
+
+// EVENTOS (solo estado)
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowUp") estado.gravedad = { x: 0, y: -1 };
+  if (e.key === "ArrowDown") estado.gravedad = { x: 0, y: 1 };
+  if (e.key === "ArrowLeft") estado.gravedad = { x: -1, y: 0 };
+  if (e.key === "ArrowRight") estado.gravedad = { x: 1, y: 0 };
+});
+
+// iniciar
+cargarNivel();
+</script>
+
+</body>
+</html>
