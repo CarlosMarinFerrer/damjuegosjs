@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego: Tiro al Blanco (Proyecto 1º DAM)</title>
+    <style>
+        body {
+            background-color: #2c3e50;
+            color: white;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        /* ZonaJuego */
+        #pantalla-juego {
+            position: relative;
+            width: 600px;
+            height: 600px;
+            background-color: #ecf0f1;
+            border: 4px solid #34495e;
+            margin-top: 20px;
+            overflow: hidden;
+            /* Cursor Fuera*/
+            cursor: none; 
+        } 
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #2c3e50;
+            font-size: 20px;
+            font-weight: bold;
+            z-index: 10;
+        }
+        /* Circulo que disparar */
+        #objetivo {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background-color: #e74c3c;
+            border-radius: 50%; /*  redondo */
+            border: 3px solid #c0392b;
+        }
+        /* Mirilla */
+        #mirilla {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border: 3px solid #2980b9;
+            border-radius: 50%;
+            /*Evita que la mirilla quite los clicks porque antes no dejaba */
+            pointer-events: none; 
+            z-index: 20;
+        }
+        /* Punto de en medio */
+        #mirilla::after {
+            content: "";
+            position: absolute;
+            top: 16px; left: 16px;
+            width: 8px; height: 8px;
+            background-color: #2980b9;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Tiro al Blanco</h1>
+    <p>Mueve el ratón para apuntar y haz <b>Click Izquierdo</b> para disparar. Solo tienes 30s</p>
+
+    <div id="pantalla-juego">
+        <div id="info">Puntos: 0 | Tiempo: 30</div>
+        <div id="objetivo"></div>
+        <div id="mirilla"></div>
+    </div>
+
+    <script>
+        // Referencias al DOM (Solo para usarlas en la función dibujar)
+        const domJuego = document.getElementById("pantalla-juego");
+        const domInfo = document.getElementById("info");
+        const domObjetivo = document.getElementById("objetivo");
+        const domMirilla = document.getElementById("mirilla");
+
+        // 1. El estado
+        let estado = {
+            juegoActivo: true,
+            puntuacion: 0,
+            framesRestantes: 1500, // A 50 fps, 1500 frames son 30 segundos
+            clickIzquierdo: false, // Aquí guardamos si el usuario ha pulsado el botón
+            mirilla: { 
+                x: 300, 
+                y: 300, 
+                ancho: 40, 
+                alto: 40 
+            },
+            objetivo: { 
+                x: 275, 
+                y: 275, 
+                ancho: 50, 
+                alto: 50 
+            }
+        };
+
+        // Utilidad: Comprobar colisión 
+        function hayChoque(a, b) {
+            return !(a.x + a.ancho < b.x || 
+                     a.x > b.x + b.ancho || 
+                     a.y + a.alto < b.y || 
+                     a.y > b.y + b.alto);
+        }
+
+        // 2. Cap eventos Modifica el estado
+        // Mover el ratón actualiza las coordenadas (x,y) de la mirilla en el estado
+        domJuego.addEventListener("mousemove", function(e) {
+            //Posicion relativa al terreno de juego
+            let rect = domJuego.getBoundingClientRect();
+            // Restamos la mitad del ancho/alto para que el cursor quede en el centro de la mirilla
+            estado.mirilla.x = (e.clientX - rect.left) - (estado.mirilla.ancho / 2);
+            estado.mirilla.y = (e.clientY - rect.top) - (estado.mirilla.alto / 2);
+        });
+
+        // Hacer click izquierdo actualiza la variable de disparo en el estado
+        domJuego.addEventListener("mousedown", function(e) {
+            if (e.button === 0) { // 0 es el botón izquierdo del ratón
+                estado.clickIzquierdo = true;
+            }
+        });
+
+        // 3. MODIFICACIÓN DE ESTADO (Reglas del juego)
+        function actualizar() {
+            if (!estado.juegoActivo) return;
+
+            // Restamos tiempo (frames)
+            estado.framesRestantes--;
+            if (estado.framesRestantes <= 0) {
+                estado.juegoActivo = false;
+            }
+
+            // Caso si se hace click
+            if (estado.clickIzquierdo) {
+                
+                // Comprobar choque entre la mirilla y el objetivo
+                if (hayChoque(estado.mirilla, estado.objetivo)) {
+                    estado.puntuacion += 10;
+                    
+                    // Movemos el objetivo a un sitio aleatorio nuevo
+                    // (Ancho tablero 600 - ancho objetivo 50 = 550 máximo)
+                    estado.objetivo.x = Math.floor(Math.random() * 550);
+                    estado.objetivo.y = Math.floor(Math.random() * 550);
+                }
+
+                // Se resetea elo click tras estar procesado
+                //Si no se mantiene clickado siempre
+                estado.clickIzquierdo = false; 
+            }
+        }
+
+        // 4. DIBUJAR 
+        function dibujar() {
+            // Calcular segundos restantes (Frames / 50fps)
+            let segundos = Math.ceil(estado.framesRestantes / 50);
+            
+            if (estado.juegoActivo) {
+                domInfo.innerText = "Puntos: " + estado.puntuacion + " | Tiempo: " + segundos;
+            } else {
+                domInfo.innerText = "Han pasado 30s Puntuación final: " + estado.puntuacion;
+                // Se esconde el objetivo
+                domObjetivo.style.display = "none";
+                domJuego.style.cursor = "default"; 
+            }
+
+            // Dibujar objetivo
+            domObjetivo.style.left = estado.objetivo.x + "px";
+            domObjetivo.style.top = estado.objetivo.y + "px";
+
+            // Dibujar mirilla
+            domMirilla.style.left = estado.mirilla.x + "px";
+            domMirilla.style.top = estado.mirilla.y + "px";
+        }
+
+        // BUCLE DE ANIMACIÓN
+        function animar() {
+            actualizar();
+            dibujar();
+        }
+
+        // Ejecutar a 50 FPS ada 20ms
+        setInterval(animar, 20);
+
+    </script>
+</body>
+</html>
